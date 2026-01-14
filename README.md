@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🛡️ DeployGuard
 
-## Getting Started
+**Pre-Deployment Security Guardrail for Developers**
 
-First, run the development server:
+> "If I were an attacker, how would I break this app?"  
+> DeployGuard tells you the answer before you ship.
+
+![Scan Dashboard](/Users/benelux/.gemini/antigravity/brain/7364dad3-fd34-436e-ac18-cd1abec32683/deployguard_scan_results_1768409660261.png)
+
+## 📌 Problem
+
+Students and early-stage startups often ship fast and break rules. Common mistakes include:
+- Committing `.env` files or API keys.
+- Misconfiguring JWTs (using `none` alg or weak secrets).
+- Leaving CORS wide open (`*`).
+- Exposing admin routes without protection.
+
+DeployGuard acts as a **last-mile security checkpoint** that catches these issues, explains how to exploit them, and offers one-click fixes.
+
+## 🚀 Features
+
+-   **🔍 Deep Repository Scan**: Analyzes source code for 5+ critical vulnerability patterns.
+-   **😈 Exploit Simulation**: Demonstrates *impact* by forging tokens (JWT) and testing access controls.
+-   **🤖 Auto-Fix PRs**: One-click generation of Pull Requests to patch vulnerabilities (Simulated in MVP).
+-   **📊 Premium Dashboard**: A developer-friendly UI to view risks and mitigation steps.
+
+## 🛠️ Tech Stack
+
+-   **Frontend**: Next.js 14, TailwindCSS 4, Lucide Icons
+-   **Backend Logic**: Node.js, `glob`, Regex, AST-like parsing
+-   **Simulation**: `jsonwebtoken`, `axios` for exploit scripts
+
+## ⚡ Getting Started
+
+### 1. Installation
+
+```bash
+git clone https://github.com/mock-org/deploy-guard.git
+cd deploy-guard
+npm install
+```
+
+### 2. Configuration
+
+Copy the example env file (or use the one provided):
+
+```bash
+cp .env.example .env
+```
+
+Ensure `.env` has:
+```env
+GITHUB_ORG=your-org
+SCAN_TARGET_DIR=.
+```
+
+### 3. Run the Dashboard
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 4. Run the Exploit Demo
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To see the "Hacker View" in the terminal:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npx tsx src/exploit/index.ts
+```
 
-## Learn More
+## 🧪 How to Verify (Demo Flow)
 
-To learn more about Next.js, take a look at the following resources:
+1.  **Open Dashboard**: Go to `http://localhost:3000`.
+2.  **Scan**: Click **"Run Scan"**.
+3.  **View Results**: You should see 12+ vulnerabilities found in `src/vulnerable_app_test.ts`.
+4.  **Check Details**: Expand the "AWS Access Key" card.
+5.  **Auto-Fix**: Click the **"Auto-Fix"** button.
+    -   *Success*: receive an alert with a Mock PR URL.
+    -   *Check*: Verify `deployguard-patch-....diff` was created in the project root.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛡️ Supported Checks (MVP)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| ID | Description | Severity |
+| :--- | :--- | :--- |
+| `exposed-secrets` | Hardcoded API Keys/Secrets | CRITICAL |
+| `jwt-misconfig` | 'None' Algorithm or Weak Secrets | CRITICAL |
+| `broken-cors` | Wildcard Origin (`*`) | HIGH |
+| `admin-route` | Unprotected API Routes | HIGH |
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*Built for LavaPunk Hackathon 2026*
