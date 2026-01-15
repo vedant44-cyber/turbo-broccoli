@@ -8,19 +8,145 @@ import { ScanResult, Vulnerability } from '@/types';
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ScanResult | null>(null);
+  const [scanStatus, setScanStatus] = useState<string>("");
 
-  const startScan = async () => {
-    setLoading(true);
+  // Helper to read file contents
+  const readFileContent = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = (e) => reject(e);
+      reader.readAsText(file);
+    });
+  };
+
+  const handleSelectProject = async () => {
     try {
-      const res = await fetch('/api/scan', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setResults(data.data);
+
+      if (!window.showDirectoryPicker) {
+        alert("Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.");
+        return;
       }
+
+
+      const dirHandle = await window.showDirectoryPicker();
+      setLoading(true);
+      setScanStatus("Reading files...");
+
+      const filesPayload: { path: string, content: string }[] = [];
+      let skippedCount = 0;
+      
+      async function scanDir(handle: any, path = "") {
+        for await (const entry of handle.values()) {
+          const newPath = path ? `${path}/${entry.name}` : entry.name;
+          
+          if (entry.kind === 'file') {
+             // Production ignore logic
+             if (newPath.includes('node_modules') || newPath.includes('.git') || 
+                 newPath.includes('.next') || newPath.includes('dist') || 
+                 newPath.includes('build') || newPath.includes('coverage') ||
+                 newPath.endsWith('.png') || newPath.endsWith('.jpg') || 
+                 newPath.endsWith('.jpeg') || newPath.endsWith('.svg') ||
+                 newPath.endsWith('.ico')) {
+               continue;
+             }
+
+             const file = await entry.getFile();
+             // Limit individual file size to 500KB for Production (Next.js limits apply)
+             if (file.size < 500000) { 
+                try {
+                  const content = await readFileContent(file);
+                  filesPayload.push({ path: newPath, content });
+                } catch (err) {
+                  console.warn(`Failed to read ${newPath}`, err);
+                }
+             } else {
+               skippedCount++;
+             }
+          } else if (entry.kind === 'directory') {
+             if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+                await scanDir(entry, newPath);
+             }
+          }
+        }
+      }
+
+      await scanDir(dirHandle);
+      
+      if (filesPayload.length === 0) {
+        alert("No scannable files found in this directory.");
+        setLoading(false);
+        setScanStatus("");
+        return;
+      }
+
+      setScanStatus(`Scanning ${filesPayload.length} files (${skippedCount} large files skipped)...`);
+      
+      // Extract all file paths for global context
+      const allFilePaths = filesPayload.map(f => f.path);
+
+      // Chunking logic to prevent 413 Payload Too Large
+      const CHUNK_SIZE = 5; 
+      const chunks = [];
+      for (let i = 0; i < filesPayload.length; i += CHUNK_SIZE) {
+          chunks.push(filesPayload.slice(i, i + CHUNK_SIZE));
+      }
+
+      const allResults: ScanResult = { 
+        vulnerabilities: [], 
+        scannedFiles: 0, 
+        durationMs: 0 
+      };
+
+      for (let i = 0; i < chunks.length; i++) {
+        setScanStatus(`Scanning batch ${i + 1} of ${chunks.length}...`);
+        
+        const res = await fetch('/api/scan', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            files: chunks[i],
+            filePaths: allFilePaths // Send global context with every batch
+          }) 
+        });
+
+        if (!res.ok) throw new Error(`Batch ${i+1} failed: ${res.statusText}`);
+        
+        const data = await res.json();
+        if (data.success) {
+           // Deduplicate vulnerabilities based on unique signature (ruleId + file + line)
+           const newVulns = data.data.vulnerabilities;
+           for (const v of newVulns) {
+             const exists = allResults.vulnerabilities.some(
+               existing => existing.ruleId === v.ruleId && existing.file === v.file && existing.line === v.line
+             );
+             if (!exists) {
+               allResults.vulnerabilities.push(v);
+             }
+           }
+           
+           allResults.scannedFiles += data.data.scannedFiles;
+           allResults.durationMs += data.data.durationMs;
+        } else {
+           throw new Error(data.error || "Unknown server error");
+        }
+      }
+
+      setResults(allResults);
+
+
     } catch (error) {
       console.error(error);
+      if ((error as Error).name === 'AbortError') return;
+      
+      let msg = (error as Error).message;
+      if (msg.includes('413')) {
+        msg = "Project too large for demo (Payload limit exceeded). Try a smaller folder.";
+      }
+      alert(`Scan failed: ${msg}`);
     } finally {
       setLoading(false);
+      setScanStatus("");
     }
   };
 
@@ -44,12 +170,12 @@ export default function Home() {
           </div>
           
           <button 
-            onClick={startScan}
+            onClick={handleSelectProject}
             disabled={loading}
             className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-500/20"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {loading ? 'Scanning...' : 'Run Scan'}
+            {loading ? scanStatus || 'Scanning...' : 'Select Project'}
           </button>
         </div>
 
@@ -61,7 +187,7 @@ export default function Home() {
             </div>
             <h3 className="text-lg font-medium">Ready to Scan</h3>
             <p className="text-muted-foreground max-w-sm mx-auto mt-2">
-              DeployGuard will analyze your codebase against 5 critical security rules including Secrets, JWT, and CORS checks.
+              Select your local project folder. DeployGuard will analyze the files securely in-memory.
             </p>
           </div>
         )}

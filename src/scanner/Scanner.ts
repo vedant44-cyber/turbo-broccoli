@@ -10,11 +10,58 @@ export class Scanner {
     this.rules = rules;
   }
 
-  async scan(projectPath: string): Promise<ScanResult> {
+  /**
+   * Scans a list of files provided in memory.
+   */
+  async scanFiles(files: FileContext[], allFilePaths?: string[]): Promise<ScanResult> {
     const startTime = Date.now();
     const vulnerabilities: Vulnerability[] = [];
-    let scannedFilesCount = 0;
 
+    for (const file of files) {
+      try {
+        const context: FileContext = {
+          path: file.path,
+          content: file.content,
+        };
+
+        for (const rule of this.rules) {
+          // Special handling for gitignore validation - needs all files context
+          if (rule.id === 'gitignore-validation') {
+            continue; // Skip for now, we'll run it once at the end
+          }
+
+          const ruleVulns = rule.check(context);
+          vulnerabilities.push(...ruleVulns);
+        }
+      } catch (err) {
+        console.error(`Error scanning file ${file.path}:`, err);
+      }
+    }
+
+    // Run gitignore validation once with all files context
+    const gitignoreRule = this.rules.find(r => r.id === 'gitignore-validation');
+    if (gitignoreRule) {
+      try {
+        // Pass a dummy context and all files
+        const dummyContext: FileContext = { path: '.gitignore', content: '' };
+        const gitignoreVulns = gitignoreRule.check(dummyContext, files, allFilePaths);
+        vulnerabilities.push(...gitignoreVulns);
+      } catch (err) {
+        console.error('Error running gitignore validation:', err);
+      }
+    }
+
+    return {
+      vulnerabilities,
+      scannedFiles: files.length,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * Scans a directory from the local file system.
+   */
+  async scanDirectory(projectPath: string): Promise<ScanResult> {
     // Default ignores for performance and relevance
     const ignorePatterns = [
       '**/node_modules/**',
@@ -32,44 +79,34 @@ export class Scanner {
     ];
 
     try {
-      const files = await glob('**/*', { 
-        cwd: projectPath, 
+      const paths = await glob('**/*', {
+        cwd: projectPath,
         ignore: ignorePatterns,
         nodir: true,
         absolute: true
       });
 
-      scannedFilesCount = files.length;
-
-      for (const file of files) {
+      const files: FileContext[] = [];
+      for (const p of paths) {
         try {
-          // Read file content
-          const content = await fs.readFile(file, 'utf-8');
-          
-          // Basic context creation
-          const context: FileContext = {
-            path: file,
-            content,
-            // AST parsing will be added here later if needed per file type
-          };
-
-          for (const rule of this.rules) {
-            const ruleVulns = rule.check(context);
-            vulnerabilities.push(...ruleVulns);
-          }
+          const content = await fs.readFile(p, 'utf-8');
+          files.push({ path: p, content });
         } catch (err) {
-          console.error(`Error scanning file ${file}:`, err);
+          console.error(`Error reading file ${p}:`, err);
         }
       }
 
+      return this.scanFiles(files);
+
     } catch (err) {
       console.error('Error in glob search:', err);
+      return { vulnerabilities: [], scannedFiles: 0, durationMs: 0 };
     }
-
-    return {
-      vulnerabilities,
-      scannedFiles: scannedFilesCount,
-      durationMs: Date.now() - startTime,
-    };
   }
+
+  // Legacy method for backward compatibility if needed, aliased to scanDirectory
+  async scan(projectPath: string): Promise<ScanResult> {
+    return this.scanDirectory(projectPath);
+  }
+
 }

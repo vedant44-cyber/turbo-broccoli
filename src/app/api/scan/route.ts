@@ -4,38 +4,42 @@ import { exposedSecretsRule } from '@/rules/exposedSecrets';
 import { jwtMisconfigurationRule } from '@/rules/jwtMisconfiguration';
 import { brokenCorsRule } from '@/rules/brokenCors';
 import { adminRouteRule } from '@/rules/adminRoutes';
+import { gitignoreValidationRule } from '@/rules/gitignoreValidation';
 import path from 'path';
-import 'dotenv/config';
 
-export async function POST() {
+
+export async function POST(req: Request) {
   try {
     const rules = [
       exposedSecretsRule,
       jwtMisconfigurationRule,
       brokenCorsRule,
-      adminRouteRule
+      adminRouteRule,
+      gitignoreValidationRule
     ];
 
     const scanner = new Scanner(rules);
-    // In a real app, you might scan a specific repo path. 
-    // For this MVP, we scan the current project root to find our 'vulnerable_app_test.ts'
-    const projectRoot = process.cwd();
 
-    const result = await scanner.scan(projectRoot);
+    // Check content-type to decide mode
+    const contentType = req.headers.get('content-type') || '';
 
-    // FILTER RESULTS FOR DEMO CLARITY
-    // Only show vulnerabilities found in our "test" file to reduce noise
-    const demoVulnerabilities = result.vulnerabilities.filter(v =>
-      v.file.includes('vulnerable_app_test.ts')
-    );
+    let result;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...result,
-        vulnerabilities: demoVulnerabilities
+    if (contentType.includes('application/json')) {
+      const body = await req.json();
+
+      // If 'files' array is present, use in-memory scan (Browser Mode)
+      if (body.files && Array.isArray(body.files)) {
+        console.log(`Received ${body.files.length} files from browser.`);
+        result = await scanner.scanFiles(body.files, body.filePaths);
+      } else {
+        return NextResponse.json({ success: false, error: 'No files provided for scanning' }, { status: 400 });
       }
-    });
+    } else {
+      return NextResponse.json({ success: false, error: 'Invalid content type' }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error('Scan failed:', error);
     return NextResponse.json(

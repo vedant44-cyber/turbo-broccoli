@@ -10,7 +10,7 @@ export interface Vulnerability {
   codeSnippet: string;
   description?: string;
   fixSuggestion?: string;
-  vulnType: 'JWT' | 'SECRET' | 'CORS' | 'IDOR' | 'ADMIN_ROUTE' | 'OTHER';
+  vulnType: 'JWT' | 'SECRET' | 'CORS' | 'IDOR' | 'ADMIN_ROUTE' | 'GITIGNORE' | 'OTHER';
 }
 
 export interface FileContext {
@@ -24,7 +24,7 @@ export interface Rule {
   name: string;
   description: string;
   severity: Severity;
-  check: (context: FileContext) => Vulnerability[];
+  check: (context: FileContext, allFiles?: FileContext[], allFilePaths?: string[]) => Vulnerability[];
 }
 
 export interface ScanResult {

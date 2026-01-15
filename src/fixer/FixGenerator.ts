@@ -1,7 +1,16 @@
 import { Vulnerability } from '../types';
 
+import { AIService } from '../services/aiService';
+
 export class FixGenerator {
-  static generateFix(vuln: Vulnerability): string | null {
+  static async generateFix(vuln: Vulnerability): Promise<string | null> {
+    // Try AI fix first for critical/high issues (but skip GITIGNORE as static template is better)
+    if (['CRITICAL', 'HIGH'].includes(vuln.severity) && vuln.vulnType !== 'GITIGNORE') {
+      const aiFix = await AIService.generateFix(vuln.codeSnippet, vuln.description || '');
+      if (aiFix) return aiFix;
+    }
+
+    // Fallback to static fixes
     switch (vuln.vulnType) {
       case 'JWT':
         if (vuln.ruleId === 'jwt-misconfig') {
@@ -26,12 +35,39 @@ app.use(cors({
       case 'ADMIN_ROUTE':
         return `// [DeployGuard Fix] Protect admin route
 app.use('/admin', authenticateAdminMiddleware, adminRouter);`;
+
+      case 'GITIGNORE':
+        return `# [DeployGuard Fix] Add these critical patterns to .gitignore
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp`;
     }
     return null;
   }
 
-  static generatePRUrl(vuln: Vulnerability): string {
-    const fileName = vuln.file.split('/').pop();
-    return `https://github.com/user/repo/pull/12/files?filename=${fileName}`;
-  }
+
 }
