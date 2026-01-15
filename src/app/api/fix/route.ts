@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     // Generate Patch Format
     const patchContent = `
-/* 🛡️ DeployGuard Fix Suggestion
+/* 🛡️ turbo broccoli Fix Suggestion
  * File: ${vuln.file}
  * Issue: ${vuln.message}
  * ----------------------------------------------------------------

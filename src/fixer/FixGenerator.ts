@@ -14,7 +14,7 @@ export class FixGenerator {
     switch (vuln.vulnType) {
       case 'JWT':
         if (vuln.ruleId === 'jwt-misconfig') {
-          return `// [DeployGuard Fix] Use strong secret and algorithm
+          return `// [turbo-broccoli Fix] Use strong secret and algorithm
 const secret = process.env.JWT_SECRET;
 if (!secret) throw new Error("Missing JWT_SECRET");
 const token = jwt.sign(payload, secret, { algorithm: 'HS256' });`;
@@ -22,22 +22,22 @@ const token = jwt.sign(payload, secret, { algorithm: 'HS256' });`;
         break;
 
       case 'SECRET':
-        return `// [DeployGuard Fix] Moved secret to environment variable
+        return `// [turbo-broccoli Fix] Moved secret to environment variable
 const apiKey = process.env.API_KEY;`;
 
       case 'CORS':
-        return `// [DeployGuard Fix] Restrict CORS origin
+        return `// [turbo-broccoli Fix] Restrict CORS origin
 app.use(cors({
   origin: process.env.ALLOWED_ORIGIN || "https://your-domain.com",
   credentials: true
 }));`;
 
       case 'ADMIN_ROUTE':
-        return `// [DeployGuard Fix] Protect admin route
+        return `// [turbo-broccoli Fix] Protect admin route
 app.use('/admin', authenticateAdminMiddleware, adminRouter);`;
 
       case 'GITIGNORE':
-        return `# [DeployGuard Fix] Add these critical patterns to .gitignore
+        return `# [turbo-broccoli Fix] Add these critical patterns to .gitignore
 
 # Environment variables
 .env

@@ -1,11 +1,11 @@
-# 🛡️ DeployGuard
+# 🛡️ turbo broccoli
 
 **Pre-Deployment Security Guardrail for Developers**
 
 > "If I were an attacker, how would I break this app?"  
-> DeployGuard tells you the answer before you ship.
+> turbo broccoli tells you the answer before you ship.
 
-![Scan Dashboard](/Users/benelux/.gemini/antigravity/brain/7364dad3-fd34-436e-ac18-cd1abec32683/deployguard_scan_results_1768409660261.png)
+![Scan Dashboard](/Users/benelux/.gemini/antigravity/brain/7364dad3-fd34-436e-ac18-cd1abec32683/turbo_broccoli_scan_results_1768409660261.png)
 
 ## 📌 Problem
 
@@ -15,7 +15,7 @@ Students and early-stage startups often ship fast and break rules. Common mistak
 - Leaving CORS wide open (`*`).
 - Exposing admin routes without protection.
 
-DeployGuard acts as a **last-mile security checkpoint** that catches these issues, explains how to exploit them, and offers one-click fixes.
+turbo broccoli acts as a **last-mile security checkpoint** that catches these issues, explains how to exploit them, and offers one-click fixes.
 
 ## 🚀 Features
 
@@ -35,8 +35,8 @@ DeployGuard acts as a **last-mile security checkpoint** that catches these issue
 ### 1. Installation
 
 ```bash
-git clone https://github.com/mock-org/deploy-guard.git
-cd deploy-guard
+git clone https://github.com/mock-org/turbo-broccoli.git
+cd turbo-broccoli
 npm install
 ```
 
@@ -77,7 +77,7 @@ npx tsx src/exploit/index.ts
 4.  **Check Details**: Expand the "AWS Access Key" card.
 5.  **Auto-Fix**: Click the **"Auto-Fix"** button.
     -   *Success*: receive an alert with a Mock PR URL.
-    -   *Check*: Verify `deployguard-patch-....diff` was created in the project root.
+    -   *Check*: Verify `turbo-broccoli-patch-....diff` was created in the project root.
 
 ## 🛡️ Supported Checks (MVP)
 

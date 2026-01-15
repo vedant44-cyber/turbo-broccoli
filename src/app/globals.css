@@ -16,28 +16,156 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-border: var(--border);
+  
+  /* Cyberpunk Colors */
+  --color-cyber-yellow: #fcee0a;
+  --color-cyber-pink: #ff003c;
+  --color-cyber-blue: #00f0ff;
+
+  /* Fonts */
+  --font-orbitron: var(--font-orbitron);
+  --font-rajdhani: var(--font-rajdhani);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 :root {
-  --background: #0a0a0a;
+  /* Void Black Palette */
+  --background: #050505;
   --foreground: #ededed;
-  --card: #171717;
+  
+  /* Dark Metal Cards */
+  --card: #0a0a0a;
   --card-foreground: #ededed;
-  --popover: #171717;
+  
+  --popover: #0a0a0a;
   --popover-foreground: #ededed;
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --destructive: #ef4444;
+  
+  /* Cyber Yellow Primary */
+  --primary: #fcee0a;
+  --primary-foreground: #000000;
+  
+  /* Cyber Pink Destructive */
+  --destructive: #ff003c;
   --destructive-foreground: #ffffff;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-  --accent: #262626;
-  --accent-foreground: #ededed;
-  --border: #262626;
+  
+  /* Technical Grays */
+  --muted: #1a1a1a;
+  --muted-foreground: #cfcfcf;
+  
+  --accent: #1a1a1a;
+  --accent-foreground: #fcee0a;
+  
+  --border: #333333;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-rajdhani), sans-serif;
+}
+
+/* Typography Overrides */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-orbitron), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+code, pre, .mono {
+  font-family: var(--font-jetbrains-mono), monospace;
+}
+
+/* Industrial Hard-Edge Geometry */
+.clip-cyber {
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%
+  );
+}
+
+.clip-cyber-top {
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% 100%,
+    0 100%,
+    0 10px
+  );
+}
+
+/* CRT Scanlines */
+.crt-lines {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(0, 0, 0, 0.2)
+  );
+  background-size: 100% 4px;
+  animation: scanline 10s linear infinite;
+  pointer-events: none;
+}
+
+/* Grid Perspective Floor */
+.bg-grid-perspective {
+  background-image: 
+    linear-gradient(to right, rgba(0, 240, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 240, 255, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform: perspective(500px) rotateX(60deg) translateY(-100px) scale(3);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
+  animation: grid-move 20s linear infinite;
+  transform-origin: top center;
+}
+
+/* Vignette */
+.radial-vignette {
+  background: radial-gradient(
+    circle at center, 
+    transparent 50%, 
+    rgba(0, 0, 0, 0.8) 100%
+  );
+}
+
+/* Glitch Effect */
+@keyframes grid-move {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 40px; }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+
+/* Glitch Animation Class */
+.animate-glitch:hover {
+  animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+  color: var(--color-cyber-pink);
+}
+
+@keyframes glitch {
+  0% { transform: translate(0) }
+  20% { transform: translate(-2px, 2px) }
+  40% { transform: translate(-2px, -2px) }
+  60% { transform: translate(2px, 2px) }
+  80% { transform: translate(2px, -2px) }
+  100% { transform: translate(0) }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-cyber-yellow);
 }
