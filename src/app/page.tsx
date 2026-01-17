@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { ShieldCheck, Loader2, RefreshCw, AlertTriangle, Lock, Zap, FileCode, Heart, Github, Linkedin, Terminal, Cpu } from 'lucide-react';
 import { VulnerabilityCard } from './components/VulnerabilityCard';
+import { CyberToastContainer, showToast } from './components/CyberToast';
 import { SecurityScoreCard } from './components/SecurityScoreCard';
 import { Confetti } from './components/Confetti';
 import { ScanResult, Vulnerability, Rule, ASTRule } from '@/types';
@@ -59,7 +60,7 @@ export default function Home() {
     try {
       // File System Access API
       if (!window.showDirectoryPicker) {
-        alert("Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.");
+        showToast("Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.");
         return;
       }
 
@@ -108,7 +109,7 @@ export default function Home() {
       await scanDir(dirHandle);
       
       if (filesPayload.length === 0) {
-        alert("No scannable files found in this directory.");
+          showToast("No scannable files found in this directory.");
         setLoading(false);
         setScanStatus("");
         return;
@@ -162,7 +163,7 @@ export default function Home() {
 
     } catch (error) {
       console.error(error);
-      alert(`Scan failed: ${(error as Error).message}`);
+      showToast(`Scan failed: ${(error as Error).message}`);
     } finally {
       setLoading(false);
       setScanStatus("");
@@ -174,6 +175,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-8 relative z-10">
+      <CyberToastContainer />
       <div className="max-w-5xl mx-auto space-y-12">
         
         {/* Header */}
