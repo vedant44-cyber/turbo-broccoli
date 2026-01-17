@@ -1,9 +1,7 @@
 import { Rule, Vulnerability, FileContext } from '../types';
 
 const CRITICAL_PATTERNS = [
-    { pattern: /^\.env$/m, name: '.env' },
-    { pattern: /^\.env\.\*$/m, name: '.env.*' },
-    { pattern: /^\.env\.local$/m, name: '.env.local' },
+    { pattern: /^\.env$/m, name: '.env' }
 ];
 
 const HIGH_PRIORITY_PATTERNS = [
@@ -21,7 +19,7 @@ const MEDIUM_PRIORITY_PATTERNS = [
     { pattern: /^\.idea\/?$/m, name: '.idea/' },
 ];
 
-// This rule needs special handling - it checks across ALL files
+//  it checks across ALL files
 export const gitignoreValidationRule: Rule = {
     id: 'gitignore-validation',
     name: 'Gitignore Validation',
@@ -30,27 +28,16 @@ export const gitignoreValidationRule: Rule = {
     check: (context: FileContext, allFiles?: FileContext[], allFilePaths?: string[]): Vulnerability[] => {
         const vulnerabilities: Vulnerability[] = [];
 
-        // If we don't have global context (allFiles or allFilePaths), we can't reliably run this rule
         if (!allFiles && !allFilePaths) {
             return vulnerabilities;
         }
-
-        // Determine .gitignore existence
-        // If allFilePaths is provided, use it (more accurate for batches)
-        // Otherwise fall back to allFiles
         const gitignorePath = allFilePaths
             ? allFilePaths.find(p => p.endsWith('.gitignore') || p === '.gitignore')
             : allFiles?.find(f => f.path.endsWith('.gitignore') || f.path === '.gitignore')?.path;
 
-        // If .gitignore exists globally but is NOT in the current batch (allFiles),
-        // we skip validation because we can't read its content.
-        // This prevents false positives/negatives in other batches.
         const gitignoreInBatch = allFiles?.find(f => f.path.endsWith('.gitignore') || f.path === '.gitignore');
 
-        // CRITICAL: No .gitignore file exists in the entire project
         if (!gitignorePath) {
-            // Check if there are any .env files in the project
-            // Use allFilePaths if available
             const envExists = allFilePaths
                 ? allFilePaths.some(p => {
                     const filename = p.split('/').pop() || '';

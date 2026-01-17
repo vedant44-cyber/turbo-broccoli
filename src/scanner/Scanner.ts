@@ -1,13 +1,23 @@
-import { glob } from 'glob';
-import * as fs from 'fs/promises';
-import { Rule, ScanResult, Vulnerability, FileContext } from '../types';
-import * as path from 'path';
+import { Rule, ScanResult, Vulnerability, FileContext, ASTRule } from '../types';
+import { parseToAST } from '../ast/astParser';
+
+// File extensions that support AST parsing
+const AST_SUPPORTED_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
 
 export class Scanner {
   private rules: Rule[];
+  private astRules: ASTRule[];
 
-  constructor(rules: Rule[]) {
+  constructor(rules: Rule[], astRules: ASTRule[] = []) {
     this.rules = rules;
+    this.astRules = astRules;
+  }
+
+  /**
+   * Check if a file supports AST parsing based on its extension
+   */
+  private supportsAST(filePath: string): boolean {
+    return AST_SUPPORTED_EXTENSIONS.some(ext => filePath.endsWith(ext));
   }
 
   /**
@@ -17,6 +27,7 @@ export class Scanner {
     const startTime = Date.now();
     const vulnerabilities: Vulnerability[] = [];
 
+    // Run rules on each file
     for (const file of files) {
       try {
         const context: FileContext = {
@@ -24,6 +35,7 @@ export class Scanner {
           content: file.content,
         };
 
+        // --- Run Regex-based Rules ---
         for (const rule of this.rules) {
           // Special handling for gitignore validation - needs all files context
           if (rule.id === 'gitignore-validation') {
@@ -33,6 +45,35 @@ export class Scanner {
           const ruleVulns = rule.check(context);
           vulnerabilities.push(...ruleVulns);
         }
+
+        // --- Run AST-based Rules ---
+        if (this.supportsAST(file.path) && this.astRules.length > 0) {
+          try {
+            const ast = parseToAST(file.content, file.path);
+
+            if (ast) {
+              // Attach AST to context for potential future use
+              context.ast = ast;
+
+              for (const astRule of this.astRules) {
+                // Check if rule applies to this file type
+                const fileExt = '.' + file.path.split('.').pop();
+                if (astRule.fileTypes.includes(fileExt)) {
+                  try {
+                    const astVulns = astRule.check(ast, context);
+                    vulnerabilities.push(...astVulns);
+                  } catch (ruleErr) {
+                    console.warn(`[AST Rule ${astRule.id}] Error scanning ${file.path}:`, ruleErr);
+                  }
+                }
+              }
+            }
+          } catch (parseErr) {
+            // AST parsing failed - this is fine, regex rules still ran
+            console.warn(`[AST Parser] Could not parse ${file.path}:`, parseErr);
+          }
+        }
+
       } catch (err) {
         console.error(`Error scanning file ${file.path}:`, err);
       }
@@ -44,7 +85,11 @@ export class Scanner {
       try {
         // Pass a dummy context and all files
         const dummyContext: FileContext = { path: '.gitignore', content: '' };
-        const gitignoreVulns = gitignoreRule.check(dummyContext, files, allFilePaths);
+        // If allFilePaths is provided, use it. Otherwise derive from files list (though files list might be partial if chunked, 
+        // but now we are client side we probably have all files or at least the ones we cared to read)
+        // Ideally we pass the full list of file paths we know about.
+        const paths = allFilePaths || files.map(f => f.path);
+        const gitignoreVulns = gitignoreRule.check(dummyContext, files, paths);
         vulnerabilities.push(...gitignoreVulns);
       } catch (err) {
         console.error('Error running gitignore validation:', err);
@@ -58,55 +103,26 @@ export class Scanner {
     };
   }
 
-  /**
-   * Scans a directory from the local file system.
-   */
-  async scanDirectory(projectPath: string): Promise<ScanResult> {
-    // Default ignores for performance and relevance
-    const ignorePatterns = [
-      '**/node_modules/**',
-      '**/.git/**',
-      '**/dist/**',
-      '**/.next/**',
-      '**/build/**',
-      '**/src/rules/**', // Ignore self-matching rules
-      '**/*.lock',
-      '**/*.png', // binary files
-      '**/*.jpg',
-      '**/*.jpeg',
-      '**/*.ico',
-      '**/*.svg',
-    ];
+  extractRoutes(files: FileContext[]): string[] {
+    return files
+      .filter(f => f.path.includes('route.ts') || f.path.includes('page.tsx'))
+      .map(f => {
+        // Convert file path to Next.js route path
+        // Simple heuristic: split by 'app/'
+        const parts = f.path.split('app/');
+        if (parts.length < 2) return '/'; // Fallback
 
-    try {
-      const paths = await glob('**/*', {
-        cwd: projectPath,
-        ignore: ignorePatterns,
-        nodir: true,
-        absolute: true
+        let route = parts[1]
+          .replace('/route.ts', '')
+          .replace('/page.tsx', '')
+          .replace('route.ts', '')
+          .replace('page.tsx', '');
+
+        if (route === '') route = '/';
+        if (!route.startsWith('/')) route = '/' + route;
+
+        return route;
       });
-
-      const files: FileContext[] = [];
-      for (const p of paths) {
-        try {
-          const content = await fs.readFile(p, 'utf-8');
-          files.push({ path: p, content });
-        } catch (err) {
-          console.error(`Error reading file ${p}:`, err);
-        }
-      }
-
-      return this.scanFiles(files);
-
-    } catch (err) {
-      console.error('Error in glob search:', err);
-      return { vulnerabilities: [], scannedFiles: 0, durationMs: 0 };
-    }
   }
-
-  // Legacy method for backward compatibility if needed, aliased to scanDirectory
-  async scan(projectPath: string): Promise<ScanResult> {
-    return this.scanDirectory(projectPath);
-  }
-
 }
+

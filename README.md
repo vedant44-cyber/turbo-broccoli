@@ -5,7 +5,6 @@
 > "If I were an attacker, how would I break this app?"  
 > turbo broccoli tells you the answer before you ship.
 
-![Scan Dashboard](/Users/benelux/.gemini/antigravity/brain/7364dad3-fd34-436e-ac18-cd1abec32683/turbo_broccoli_scan_results_1768409660261.png)
 
 ## 📌 Problem
 
@@ -35,7 +34,7 @@ turbo broccoli acts as a **last-mile security checkpoint** that catches these is
 ### 1. Installation
 
 ```bash
-git clone https://github.com/mock-org/turbo-broccoli.git
+git clone https://github.com/vedant44-cyber/turbo-broccoli.git
 cd turbo-broccoli
 npm install
 ```
@@ -48,11 +47,6 @@ Copy the example env file (or use the one provided):
 cp .env.example .env
 ```
 
-Ensure `.env` has:
-```env
-GITHUB_ORG=your-org
-SCAN_TARGET_DIR=.
-```
 
 ### 3. Run the Dashboard
 
@@ -61,13 +55,6 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-### 4. Run the Exploit Demo
-
-To see the "Hacker View" in the terminal:
-
-```bash
-npx tsx src/exploit/index.ts
-```
 
 ## 🧪 How to Verify (Demo Flow)
 
@@ -75,19 +62,6 @@ npx tsx src/exploit/index.ts
 2.  **Scan**: Click **"Run Scan"**.
 3.  **View Results**: You should see 12+ vulnerabilities found in `src/vulnerable_app_test.ts`.
 4.  **Check Details**: Expand the "AWS Access Key" card.
-5.  **Auto-Fix**: Click the **"Auto-Fix"** button.
-    -   *Success*: receive an alert with a Mock PR URL.
-    -   *Check*: Verify `turbo-broccoli-patch-....diff` was created in the project root.
 
-## 🛡️ Supported Checks (MVP)
 
-| ID | Description | Severity |
-| :--- | :--- | :--- |
-| `exposed-secrets` | Hardcoded API Keys/Secrets | CRITICAL |
-| `jwt-misconfig` | 'None' Algorithm or Weak Secrets | CRITICAL |
-| `broken-cors` | Wildcard Origin (`*`) | HIGH |
-| `admin-route` | Unprotected API Routes | HIGH |
 
----
-
-*Built for LavaPunk Hackathon 2026*

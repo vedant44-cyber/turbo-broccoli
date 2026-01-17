@@ -3,8 +3,8 @@ import { Vulnerability } from '../types';
 import { AIService } from '../services/aiService';
 
 export class FixGenerator {
-  static async generateFix(vuln: Vulnerability): Promise<string | null> {
-    // Try AI fix first for critical/high issues (but skip GITIGNORE as static template is better)
+  static async generateFix(vuln: Vulnerability): Promise<string> {
+    // Try AI fix first for critical/high issues 
     if (['CRITICAL', 'HIGH'].includes(vuln.severity) && vuln.vulnType !== 'GITIGNORE') {
       const aiFix = await AIService.generateFix(vuln.codeSnippet, vuln.description || '');
       if (aiFix) return aiFix;
@@ -19,7 +19,7 @@ const secret = process.env.JWT_SECRET;
 if (!secret) throw new Error("Missing JWT_SECRET");
 const token = jwt.sign(payload, secret, { algorithm: 'HS256' });`;
         }
-        break;
+      // falls through to default if ruleId doesn't match
 
       case 'SECRET':
         return `// [turbo-broccoli Fix] Moved secret to environment variable
@@ -65,8 +65,17 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp`;
+
+      default:
+        // Generic fallback for any unhandled vulnerability type
+        return `// [turbo-broccoli Fix Suggestion]
+// Issue: ${vuln.message}
+// 
+// Recommended action: ${vuln.fixSuggestion || 'Review and fix this vulnerability manually.'}
+//
+// Original code:
+// ${vuln.codeSnippet?.split('\n').join('\n// ') || 'N/A'}`;
     }
-    return null;
   }
 
 

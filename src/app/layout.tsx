@@ -19,7 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DeployGuard",
+  title: "turbo-broccoli",
   description: "Pre-deployment Security Guardrails",
 };
 

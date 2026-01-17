@@ -16,7 +16,19 @@ export interface Vulnerability {
 export interface FileContext {
   path: string;
   content: string;
-  ast?: any; // For future AST based rules
+  ast?: import('acorn').Node;
+}
+
+export interface ASTRule {
+  id: string;
+  name: string;
+  description: string;
+  severity: Severity;
+  fileTypes: string[]; // e.g., ['.ts', '.tsx', '.js', '.jsx']
+  check: (
+    ast: import('acorn').Node,
+    context: FileContext
+  ) => Vulnerability[];
 }
 
 export interface Rule {
@@ -31,4 +43,17 @@ export interface ScanResult {
   vulnerabilities: Vulnerability[];
   scannedFiles: number;
   durationMs: number;
+}
+
+export interface DynamicContext {
+  baseUrl: string;
+  route: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+}
+
+export interface DynamicRule {
+  id: string;
+  name: string;
+  description?: string;
+  check: (url: string) => Promise<Vulnerability | null>;
 }

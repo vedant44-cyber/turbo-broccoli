@@ -30,7 +30,6 @@ export const jwtMisconfigurationRule: Rule = {
     }
 
     // Check for obvious hardcoded secrets in jwt.sign
-    // Heuristic: jwt.sign(payload, "string_literal")
     const signMatch = context.content.match(/jwt\.sign\s*\([^,]+,\s*['"]([^'"]+)['"]/);
     if (signMatch && signMatch.index !== undefined && signMatch[1].length < 32 && !signMatch[1].startsWith('process.env')) {
       vulnerabilities.push({

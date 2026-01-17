@@ -10,23 +10,21 @@ export const adminRouteRule: Rule = {
     const lines = context.content.split('\n');
 
     lines.forEach((line, index) => {
-      // Look for route definitions like app.get('/admin', ...) or router.post('/api/admin', ...)
-      // Heuristic: line contains "/admin" or "/api/admin" but NOT "auth" or "middleware" or "protect"
       if (line.match(/['"]\/?(api\/)?admin/)) {
-          const isProtected = line.match(/auth|protect|guard|middleware|verify/i);
-          if (!isProtected) {
-              vulnerabilities.push({
-                  ruleId: 'admin-route',
-                  file: context.path,
-                  line: index + 1,
-                  severity: 'HIGH',
-                  message: 'Potential unprotected admin route.',
-                  codeSnippet: line.trim(),
-                  vulnType: 'ADMIN_ROUTE',
-                  description: 'Admin routes should be explicitly protected by authentication middleware.',
-                  fixSuggestion: 'Add authentication middleware (e.g., verifyToken, requireAdmin) to this route.',
-              });
-          }
+        const isProtected = line.match(/auth|protect|guard|middleware|verify/i);
+        if (!isProtected) {
+          vulnerabilities.push({
+            ruleId: 'admin-route',
+            file: context.path,
+            line: index + 1,
+            severity: 'HIGH',
+            message: 'Potential unprotected admin route.',
+            codeSnippet: line.trim(),
+            vulnType: 'ADMIN_ROUTE',
+            description: 'Admin routes should be explicitly protected by authentication middleware.',
+            fixSuggestion: 'Add authentication middleware (e.g., verifyToken, requireAdmin) to this route.',
+          });
+        }
       }
     });
 

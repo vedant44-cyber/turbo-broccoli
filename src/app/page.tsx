@@ -1,14 +1,49 @@
-"use client";
-
+  "use client";
 import { useState } from 'react';
-import { ShieldCheck, Loader2, RefreshCw, AlertTriangle, Lock, Zap, FileCode, Heart, Github, Linkedin } from 'lucide-react';
+import { ShieldCheck, Loader2, RefreshCw, AlertTriangle, Lock, Zap, FileCode, Heart, Github, Linkedin, Terminal, Cpu } from 'lucide-react';
 import { VulnerabilityCard } from './components/VulnerabilityCard';
-import { ScanResult, Vulnerability } from '@/types';
+import { SecurityScoreCard } from './components/SecurityScoreCard';
+import { Confetti } from './components/Confetti';
+import { ScanResult, Vulnerability, Rule, ASTRule } from '@/types';
+import { Scanner } from '@/scanner/Scanner';
+
+// Import Regex-based Rules
+import { adminRouteRule } from '@/rules/adminRoutes';
+import { exposedSecretsRule } from '@/rules/exposedSecrets';
+import { gitignoreValidationRule } from '@/rules/gitignoreValidation';
+import { brokenCorsRule } from '@/rules/brokenCors';
+import { jwtMisconfigurationRule } from '@/rules/jwtMisconfiguration';
+
+// Import AST-based Rules
+import { dangerousEvalRule } from '@/rules/ast/dangerousEval';
+import { sqlInjectionRule } from '@/rules/ast/sqlInjection';
+import { unsafeObjectAccessRule } from '@/rules/ast/unsafeObjectAccess';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ScanResult | null>(null);
   const [scanStatus, setScanStatus] = useState<string>("");
+  const [targetUrl, setTargetUrl] = useState<string>("");
+
+  
+
+  // Initialize Scanner with regex-based rules
+  const rules: Rule[] = [
+    adminRouteRule,
+    exposedSecretsRule,
+    gitignoreValidationRule,
+    brokenCorsRule,
+    jwtMisconfigurationRule
+  ];
+
+  // AST-based rules for deeper code analysis
+  const astRules: ASTRule[] = [
+    dangerousEvalRule,
+    sqlInjectionRule,
+    unsafeObjectAccessRule
+  ];
+
+  const scanner = new Scanner(rules, astRules);
 
   // Helper to read file contents
   const readFileContent = (file: File): Promise<string> => {
@@ -22,17 +57,16 @@ export default function Home() {
 
   const handleSelectProject = async () => {
     try {
-
+      // File System Access API
       if (!window.showDirectoryPicker) {
         alert("Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.");
         return;
       }
 
-
       const dirHandle = await window.showDirectoryPicker();
       setLoading(true);
-      setScanStatus("Reading files...");
-
+      setScanStatus("Accessing File System...");
+      
       const filesPayload: { path: string, content: string }[] = [];
       let skippedCount = 0;
       
@@ -42,7 +76,7 @@ export default function Home() {
           
           if (entry.kind === 'file') {
              // Production ignore logic
-             if (newPath.includes('node_modules') || newPath.includes('.git') || 
+             if (newPath.includes('node_modules') || newPath.includes('.git/') || 
                  newPath.includes('.next') || newPath.includes('dist') || 
                  newPath.includes('build') || newPath.includes('coverage') ||
                  newPath.endsWith('.png') || newPath.endsWith('.jpg') || 
@@ -52,8 +86,8 @@ export default function Home() {
              }
 
              const file = await entry.getFile();
-             // Limit individual file size to 500KB for Production (Next.js limits apply)
-             if (file.size < 500000) { 
+             // Limit individual file size to 1MB for Client-Side performance
+             if (file.size < 1000000) { 
                 try {
                   const content = await readFileContent(file);
                   filesPayload.push({ path: newPath, content });
@@ -80,70 +114,55 @@ export default function Home() {
         return;
       }
 
-      setScanStatus(`Scanning ${filesPayload.length} files (${skippedCount} large files skipped)...`);
+      setScanStatus(`Scanning ${filesPayload.length} files locally...`);
       
-      // Extract all file paths for global context
+      // --- LOCAL STATIC SCAN ---
+      // Extract all file paths for global contexts (like .gitignore validation)
       const allFilePaths = filesPayload.map(f => f.path);
-
-      // Chunking logic to prevent 413 Payload Too Large
-      const CHUNK_SIZE = 5; 
-      const chunks = [];
-      for (let i = 0; i < filesPayload.length; i += CHUNK_SIZE) {
-          chunks.push(filesPayload.slice(i, i + CHUNK_SIZE));
-      }
-
+      
+      const staticResults = await scanner.scanFiles(filesPayload, allFilePaths);
+      
       const allResults: ScanResult = { 
-        vulnerabilities: [], 
-        scannedFiles: 0, 
-        durationMs: 0 
+        vulnerabilities: staticResults.vulnerabilities, 
+        scannedFiles: staticResults.scannedFiles, 
+        durationMs: staticResults.durationMs
       };
 
-      for (let i = 0; i < chunks.length; i++) {
-        setScanStatus(`Scanning batch ${i + 1} of ${chunks.length}...`);
-        
-        const res = await fetch('/api/scan', { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            files: chunks[i],
-            filePaths: allFilePaths // Send global context with every batch
-          }) 
-        });
+      // --- DYNAMIC SCAN START ---
+      let finalDuration = allResults.durationMs;
+      if (targetUrl) {
+          setScanStatus("Initiating Dynamic Siege (Active Analysis)...");
+          try {
+             // Extract routes for DAST using the scanner's logic
+             const detectedRoutes = scanner.extractRoutes(filesPayload);
 
-        if (!res.ok) throw new Error(`Batch ${i+1} failed: ${res.statusText}`);
-        
-        const data = await res.json();
-        if (data.success) {
-           // Deduplicate vulnerabilities based on unique signature (ruleId + file + line)
-           const newVulns = data.data.vulnerabilities;
-           for (const v of newVulns) {
-             const exists = allResults.vulnerabilities.some(
-               existing => existing.ruleId === v.ruleId && existing.file === v.file && existing.line === v.line
-             );
-             if (!exists) {
-               allResults.vulnerabilities.push(v);
+             const dynRes = await fetch('/api/scan-dynamic', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: targetUrl, routes: detectedRoutes })
+             });
+             
+             if (dynRes.ok) {
+                 const dynData = await dynRes.json();
+                 if (dynData.success) {
+                     allResults.vulnerabilities.push(...dynData.data.vulnerabilities);
+                     finalDuration += dynData.data.durationMs;
+                 }
              }
-           }
-           
-           allResults.scannedFiles += data.data.scannedFiles;
-           allResults.durationMs += data.data.durationMs;
-        } else {
-           throw new Error(data.error || "Unknown server error");
-        }
-      }
 
+          } catch (e) {
+              console.error("Dynamic scan failed", e);
+          }
+      }
+      // --- DYNAMIC SCAN END ---
+
+      allResults.durationMs = finalDuration;
       setResults(allResults);
 
 
     } catch (error) {
       console.error(error);
-      if ((error as Error).name === 'AbortError') return;
-      
-      let msg = (error as Error).message;
-      if (msg.includes('413')) {
-        msg = "Project too large for demo (Payload limit exceeded). Try a smaller folder.";
-      }
-      alert(`Scan failed: ${msg}`);
+      alert(`Scan failed: ${(error as Error).message}`);
     } finally {
       setLoading(false);
       setScanStatus("");
@@ -158,38 +177,63 @@ export default function Home() {
       <div className="max-w-5xl mx-auto space-y-12">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-6 border-b border-border/50 relative">
+        <div className="flex flex-col gap-6 pb-6 border-b border-border/50 relative">
           <div className="absolute bottom-0 left-0 w-1/3 h-[1px] bg-primary shadow-[0_0_10px_var(--color-primary)]"></div>
           
-          <div className="flex items-center gap-4 group">
-            <div className="w-12 h-12 bg-primary/10 border border-primary/50 relative flex items-center justify-center text-primary clip-cyber overflow-hidden">
-              <div className="absolute inset-0 bg-primary/20 animate-pulse"></div>
-              <ShieldCheck className="w-7 h-7 relative z-10" />
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-4 group">
+              <div className="w-12 h-12 bg-primary/10 border border-primary/50 relative flex items-center justify-center text-primary clip-cyber overflow-hidden">
+                <div className="absolute inset-0 bg-primary/20 animate-pulse"></div>
+                <ShieldCheck className="w-7 h-7 relative z-10" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-primary to-white animate-glitch cursor-default select-none" data-text="turbo broccoli">
+                  turbo broccoli
+                </h1>
+                <p className="text-muted-foreground text-xs tracking-[0.2em] uppercase flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_5px_lime]"></span>
+                  System Online
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-primary to-white animate-glitch cursor-default select-none" data-text="turbo broccoli">
-                turbo broccoli
-              </h1>
-              <p className="text-muted-foreground text-xs tracking-[0.2em] uppercase flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_5px_lime]"></span>
-                System Online
-              </p>
+            
+            <div className="flex items-center gap-4">
+               {/* Target URL Input */}
+               <div className="relative group">
+                  <div className="flex flex-col gap-1">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-primary/50 text-xs">TARGET:</span>
+                      </div>
+                      <input 
+                        type="text" 
+                        placeholder="https://your-app.ngrok-free.app" 
+                        className="pl-16 pr-4 py-3 bg-black/50 border border-primary/30 text-primary font-mono text-sm w-72 focus:outline-none focus:border-primary focus:shadow-[0_0_15px_var(--color-primary)] transition-all clip-cyber"
+                        value={targetUrl}
+                        onChange={(e) => setTargetUrl(e.target.value)}
+                      />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground/70 pl-1">
+                      For local apps, use <a href="https://ngrok.com" target="_blank" rel="noopener noreferrer" className="text-primary/70 hover:text-primary underline">ngrok</a> to generate a public URL.
+                    </span>
+                  </div>
+               </div>
+
+              <button 
+                onClick={handleSelectProject}
+                disabled={loading}
+                className="group relative px-8 py-3 bg-primary/10 text-primary font-bold tracking-wider hover:bg-primary hover:text-black disabled:opacity-50 disabled:cursor-not-allowed transition-all clip-cyber border border-primary/50 hover:shadow-[0_0_20px_var(--color-primary)]"
+              >
+                <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-primary group-hover:border-black transition-colors"></div>
+                <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-primary group-hover:border-black transition-colors"></div>
+                
+                <span className="flex items-center gap-3 relative z-10">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                  {loading ? scanStatus || 'INITIALIZING...' : 'INITIATE SCAN'}
+                </span>
+              </button>
             </div>
           </div>
-          
-          <button 
-            onClick={handleSelectProject}
-            disabled={loading}
-            className="group relative px-8 py-3 bg-primary/10 text-primary font-bold tracking-wider hover:bg-primary hover:text-black disabled:opacity-50 disabled:cursor-not-allowed transition-all clip-cyber border border-primary/50 hover:shadow-[0_0_20px_var(--color-primary)]"
-          >
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-primary group-hover:border-black transition-colors"></div>
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-primary group-hover:border-black transition-colors"></div>
-            
-            <span className="flex items-center gap-3 relative z-10">
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-              {loading ? scanStatus || 'INITIALIZING...' : 'INITIATE SCAN'}
-            </span>
-          </button>
         </div>
 
         {/* Empty State / Features Home */}
@@ -218,7 +262,7 @@ export default function Home() {
                 </h2>
                 
                 <p className="max-w-md text-lg text-muted-foreground">
-                  Advanced static analysis tool designed to catch critical vulnerabilities before they reach production. 
+                  Advanced Hybrid Client-Side Analysis Engine + Gemini AI designed to catch critical vulnerabilities before they reach production. 
                 </p>
 
                 <div className="flex items-center gap-4 text-sm font-mono text-muted-foreground">
@@ -259,8 +303,10 @@ export default function Home() {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
             
             {/* Stats */}
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Security Score Card */}
+                <SecurityScoreCard vulnerabilities={results.vulnerabilities} />
+
                 <div className="bg-card/50 border border-border p-6 relative overflow-hidden group hover:border-primary/50 transition-colors">
                   <div className="absolute top-0 right-0 p-2 opacity-10 text-4xl grayscale group-hover:grayscale-0 transition-all">📂</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">Files Scanned</p>
@@ -293,11 +339,53 @@ export default function Home() {
                 </div>
             </div>
 
+            {/* Confetti celebration for 0 vulnerabilities */}
+            {results.vulnerabilities.length === 0 && <Confetti />}
+
             {/* Vulnerability List */}
             <div>
-              <div className="flex items-center gap-4 mb-6 border-b border-border/30 pb-2">
-                <AlertTriangle className="w-6 h-6 text-primary animate-pulse" />
-                <h2 className="text-xl font-bold tracking-wider text-primary">DIAGNOSTIC REPORT</h2>
+              <div className="flex items-center justify-between mb-6 border-b border-border/30 pb-2">
+                <div className="flex items-center gap-4">
+                    <AlertTriangle className="w-6 h-6 text-primary animate-pulse" />
+                    <h2 className="text-xl font-bold tracking-wider text-primary">DIAGNOSTIC REPORT</h2>
+                </div>
+                <button
+                    onClick={() => {
+                        const report = `# TURBO BROCCOLI // WAR REPORT
+Generated: ${new Date().toLocaleString()}
+Target: ${targetUrl || 'Local Filesystem'}
+Files Scanned: ${results.scannedFiles}
+Threats Detected: ${results.vulnerabilities.length}
+
+## EXECUTIVE SUMMARY
+${results.vulnerabilities.length === 0 ? "System integrity verified. No threats detected." : "Critical vulnerabilities detected. Immediate remediation required."}
+
+## DETECTED THREATS
+${results.vulnerabilities.map((v, i) => `
+### [${v.severity}] ${v.message}
+- File: ${v.file}:${v.line}
+- Type: ${v.vulnType}
+- Description: ${v.description}
+- Remediation: ${v.fixSuggestion}
+`).join('\n')}
+
+----------------------------------------------------------------
+GENERATED BY TURBO PROCCOLI - HYBRID CLIENT-SIDE ANALYSIS ENGINE
+`;
+                        const blob = new Blob([report], { type: 'text/markdown' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `turbo-broccoli-war-report-${Date.now()}.md`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    }}
+                    className="flex items-center gap-2 px-4 py-1.5 bg-primary/10 border border-primary/30 text-primary text-xs font-bold tracking-widest uppercase hover:bg-primary hover:text-black transition-colors"
+                >
+                    <FileCode className="w-4 h-4" />
+                    DOWNLOAD WAR REPORT
+                </button>
               </div>
               
               {results.vulnerabilities.length === 0 ? (
@@ -330,7 +418,7 @@ export default function Home() {
           </div>
           
           <div className="flex items-center gap-4">
-            <a href="https://github.com/vedant44-cyber" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors flex items-center gap-2 group relative">
+            <a href="https://github.com/vedant44-cyber/turbo-broccoli" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors flex items-center gap-2 group relative">
               <div className="absolute inset-0 bg-primary/20 blur opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
               <Github className="w-5 h-5 relative z-10" />
               <span className="hidden md:inline relative z-10 font-bold group-hover:tracking-widest transition-all duration-300">GITHUB</span>

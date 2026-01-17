@@ -3,9 +3,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const API_KEY = process.env.GEMINI_API_KEY;
 
 // Simple in-memory rate limiter
-// Allow 5 requests per minute
+// Allow 10 requests per minute
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const MAX_REQUESTS = 3;
+const MAX_REQUESTS = 10;
 let requestCount = 0;
 let windowStart = Date.now();
 
