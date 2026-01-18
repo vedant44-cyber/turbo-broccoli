@@ -272,9 +272,9 @@ export default function Home() {
                     <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
                     Local Execution
                   </span>
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2" title="Static scans are instant. Dynamic scans & AI fixes involve network latency.">
                     <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
-                    Zero Latency
+                    Near-Zero Latency*
                   </span>
                 </div>
               </div>
@@ -283,9 +283,9 @@ export default function Home() {
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
                   { icon: FileCode, title: "Deep Analysis", desc: "Scans for secrets, misconfigs, and compliance." },
-                  { icon: Zap, title: "AI Remediation", desc: "Powered by Gemini API to generate instant fixes." },
+                  { icon: Zap, title: "AI Remediation", desc: "Powered by Gemini to generate instant fixes." },
                   { icon: ShieldCheck, title: "Real-time Detection", desc: "Instant feedback on your local codebase." },
-                  { icon: Lock, title: "Privacy First", desc: "Files never leave your local machine's memory." },
+                  { icon: Lock, title: "Privacy First", desc: "Full files stay local. Only code snippets are sent for AI fixes." },
                 ].map((feature, idx) => (
                   <div key={idx} className="group/card relative overflow-hidden rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:bg-white/10 hover:shadow-lg hover:-translate-y-1">
                     <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
